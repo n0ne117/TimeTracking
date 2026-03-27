@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% block title %}Einstellungen – Zeiterfassung{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <h1 class="text-2xl font-bold text-slate-800 mb-6">Einstellungen</h1>
+
+  <!-- General Settings -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-5">
+    <h2 class="text-base font-semibold text-slate-700 mb-4 flex items-center gap-2">
+      <div class="w-7 h-7 bg-primary-100 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+      </div>
+      Allgemeine Einstellungen
+    </h2>
+    <form method="POST" action="{{ url_for('settings_view') }}">
+      <input type="hidden" name="action" value="save_settings">
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Urlaubsanspruch Standard (Tage)</label>
+          <input type="number" name="vacation_entitlement" value="{{ settings.get('vacation_entitlement', '25') }}" min="0"
+            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100">
+          <p class="text-xs text-slate-400 mt-1">Gilt, sofern kein Jahreswert gesetzt.</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Urlaubsjahr beginnt im Monat</label>
+          <select name="vacation_start_month"
+            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 bg-white">
+            {% set month_names_full = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'] %}
+            {% for i in range(1, 13) %}
+            <option value="{{ i }}" {% if settings.get('vacation_start_month', '3') | int == i %}selected{% endif %}>{{ month_names_full[i-1] }}</option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-slate-400 mt-1">Monate davor zählen zum Vorjahresurlaub.</p>
+        </div>
+      </div>
+      <div class="mt-4 flex justify-end">
+        <button type="submit"
+          class="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-700 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-sm text-sm transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          Speichern
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Work Schedules -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-5">
+    <h2 class="text-base font-semibold text-slate-700 mb-4 flex items-center gap-2">
+      <div class="w-7 h-7 bg-emerald-100 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      SOLL-Arbeitszeiten
+    </h2>
+
+    {% if work_schedules %}
+    <div class="mb-4 overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-xs text-slate-400 uppercase tracking-wide border-b border-slate-100">
+            <th class="pb-2 text-left font-medium">Gültig ab</th>
+            {% for wn in weekday_names %}
+            <th class="pb-2 text-center font-medium">{{ wn[:2] }}</th>
+            {% endfor %}
+            <th class="pb-2 text-center font-medium">Woche</th>
+            <th class="pb-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in work_schedules %}
+          {% set days_min = [s.mon_minutes, s.tue_minutes, s.wed_minutes, s.thu_minutes, s.fri_minutes, s.sat_minutes, s.sun_minutes] %}
+          {% set week_total = days_min | sum %}
+          <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+            <td class="py-2 font-medium text-slate-700">{{ s.valid_from }}</td>
+            {% for dm in days_min %}
+            <td class="py-2 text-center text-slate-600">
+              {% if dm > 0 %}
+                {{ (dm // 60) }}:{{ '%02d' % (dm % 60) }}
+              {% else %}
+                <span class="text-slate-300">—</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+            <td class="py-2 text-center font-semibold text-primary-600">
+              {{ (week_total // 60) }}:{{ '%02d' % (week_total % 60) }}
+            </td>
+            <td class="py-2 text-right">
+              <form method="POST" class="inline">
+                <input type="hidden" name="action" value="delete_schedule">
+                <input type="hidden" name="schedule_id" value="{{ s.id }}">
+                <button type="submit" onclick="return confirm('Arbeitszeit löschen?')"
+                  class="text-slate-300 hover:text-red-500 transition-colors p-1">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-sm text-slate-400 mb-4">Noch keine Arbeitszeiten eingetragen.</p>
+    {% endif %}
+
+    <!-- Add new schedule -->
+    <form method="POST" action="{{ url_for('settings_view') }}">
+      <input type="hidden" name="action" value="save_schedule">
+      <div class="grid grid-cols-9 gap-2 items-end">
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Gültig ab</label>
+          <input type="date" name="valid_from"
+            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100">
+        </div>
+        {% for (fname, label) in [('mon','Mo'),('tue','Di'),('wed','Mi'),('thu','Do'),('fri','Fr'),('sat','Sa'),('sun','So')] %}
+        {% set is_weekday = fname in ['mon','tue','wed','thu','fri'] %}
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">{{ label }}</label>
+          <input type="text" name="{{ fname }}" inputmode="numeric" maxlength="5" placeholder="HH:MM"
+            value="{{ '07:42' if is_weekday else '' }}"
+            class="sched-time-field w-full border border-slate-200 rounded-xl px-2 py-2 text-sm text-center font-mono focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100">
+        </div>
+        {% endfor %}
+      </div>
+      <div class="mt-3 flex justify-end">
+        <button type="submit"
+          class="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-xl text-sm transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Hinzufügen
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Day Codes -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+    <h2 class="text-base font-semibold text-slate-700 mb-4 flex items-center gap-2">
+      <div class="w-7 h-7 bg-violet-100 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+      </div>
+      Tagescodes
+    </h2>
+
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+      {% for code, info in day_codes.items() %}
+      <div class="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50 group">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold px-2 py-0.5 rounded-md
+            {% if code == 'HO' %}bg-blue-100 text-blue-700
+            {% elif code in ['U','UH'] %}bg-violet-100 text-violet-700
+            {% elif code in ['K','KR'] %}bg-orange-100 text-orange-700
+            {% elif code == 'G' %}bg-teal-100 text-teal-700
+            {% elif code in ['KU','KA'] %}bg-yellow-100 text-yellow-700
+            {% elif code == 'B' %}bg-pink-100 text-pink-700
+            {% else %}bg-slate-200 text-slate-600{% endif %}">
+            {{ code }}
+          </span>
+          <span class="text-sm text-slate-600">{{ info.name }}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-400 font-mono">{{ info.factor }}</span>
+          {% if code not in ['U', 'G', 'K', 'HO'] %}
+          <form method="POST" class="opacity-0 group-hover:opacity-100 transition-opacity">
+            <input type="hidden" name="action" value="delete_code">
+            <input type="hidden" name="code" value="{{ code }}">
+            <button type="submit" onclick="return confirm('Code {{ code }} löschen?')"
+              class="text-slate-300 hover:text-red-500 transition-colors p-0.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </form>
+          {% else %}
+          <svg class="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100" title="Pflichtcode – nicht löschbar" fill="currentColor" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Add code form -->
+    <form method="POST" action="{{ url_for('settings_view') }}" class="flex items-end gap-3">
+      <input type="hidden" name="action" value="save_code">
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">Code</label>
+        <input type="text" name="code" maxlength="4" placeholder="z.B. HO"
+          class="w-20 border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100">
+      </div>
+      <div class="flex-1">
+        <label class="block text-xs font-medium text-slate-500 mb-1">Bezeichnung</label>
+        <input type="text" name="code_name" placeholder="z.B. HomeOffice"
+          class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100">
+      </div>
+      <div class="w-32">
+        <label class="block text-xs font-medium text-slate-500 mb-1">Faktor</label>
+        <select name="factor"
+          class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 bg-white">
+          <option value="1">1 (voll)</option>
+          <option value="0.5">0.5 (halb)</option>
+          <option value="0">0 (kein SOLL)</option>
+          <option value="NONE">NONE (IST=SOLL)</option>
+          <option value="XTRA">XTRA (Extra)</option>
+        </select>
+      </div>
+      <button type="submit"
+        class="flex items-center gap-2 px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white font-medium rounded-xl text-sm transition-all whitespace-nowrap">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Hinzufügen
+      </button>
+    </form>
+
+    <div class="mt-4 p-3 bg-slate-50 rounded-xl text-xs text-slate-500">
+      <strong>Faktoren:</strong>
+      <span class="ml-1"><code class="bg-slate-200 px-1 rounded">0</code> = kein SOLL (Urlaub/Krank zählt neutral)</span>
+      <span class="ml-2"><code class="bg-slate-200 px-1 rounded">0.5</code> = halbes SOLL</span>
+      <span class="ml-2"><code class="bg-slate-200 px-1 rounded">1</code> = volles SOLL</span>
+      <span class="ml-2"><code class="bg-slate-200 px-1 rounded">NONE</code> = IST=SOLL (kein +/-)</span>
+      <span class="ml-2"><code class="bg-slate-200 px-1 rounded">XTRA</code> = Extra (IST=SOLL, separat gezählt)</span>
+    </div>
+  </div>
+
+  <!-- Per-Year Settings -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mt-5">
+    <h2 class="text-base font-semibold text-slate-700 mb-4 flex items-center gap-2">
+      <div class="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      </div>
+      Jahreseinstellungen (Urlaub)
+    </h2>
+    <p class="text-xs text-slate-400 mb-4">Urlaubsanspruch und -übertrag pro Jahr. Leer bei Anspruch = globaler Standard wird verwendet.</p>
+
+    {% if year_settings_list %}
+    <div class="mb-4 overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-xs text-slate-400 uppercase tracking-wide border-b border-slate-100">
+            <th class="pb-2 text-left font-medium">Jahr</th>
+            <th class="pb-2 text-center font-medium">Anspruch (Tage)</th>
+            <th class="pb-2 text-center font-medium">Übertrag aus Vorjahr (Tage)</th>
+            <th class="pb-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ys in year_settings_list %}
+          <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+            <td class="py-2 font-semibold text-slate-700">{{ ys.year }}</td>
+            <td class="py-2 text-center text-slate-600">
+              {% if ys.vacation_entitlement is not none %}{{ ys.vacation_entitlement }}{% else %}<span class="text-slate-300">Standard</span>{% endif %}
+            </td>
+            <td class="py-2 text-center text-slate-600">{{ ys.vacation_carryover }}</td>
+            <td class="py-2 text-right">
+              <form method="POST" class="inline">
+                <input type="hidden" name="action" value="delete_year_setting">
+                <input type="hidden" name="ys_year" value="{{ ys.year }}">
+                <button type="submit" onclick="return confirm('Jahreseinstellung {{ ys.year }} löschen?')"
+                  class="text-slate-300 hover:text-red-500 transition-colors p-1">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-sm text-slate-400 mb-4">Noch keine Jahreseinstellungen. Es gilt der globale Standard.</p>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('settings_view') }}" class="flex items-end gap-3">
+      <input type="hidden" name="action" value="save_year_setting">
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">Jahr</label>
+        <input type="number" name="ys_year" value="{{ current_year }}" min="2000" max="2100" required
+          class="w-24 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">Anspruch (leer = Standard)</label>
+        <input type="number" name="ys_entitlement" placeholder="z.B. 25" min="0"
+          class="w-32 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">Übertrag aus Vorjahr</label>
+        <input type="number" name="ys_carryover" placeholder="0" min="0" value="0"
+          class="w-32 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100">
+      </div>
+      <button type="submit"
+        class="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-xl text-sm transition-all whitespace-nowrap">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Hinzufügen
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('input', (e) => {
+    if (!e.target.classList.contains('sched-time-field')) return;
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 4);
+    if (raw.length === 2 && !e.target.value.includes(':')) {
+      e.target.value = raw + ':';
+    } else if (raw.length >= 3) {
+      e.target.value = raw.slice(0, 2) + ':' + raw.slice(2);
+    }
+  });
+  document.addEventListener('blur', (e) => {
+    if (!e.target.classList.contains('sched-time-field')) return;
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 4);
+    if (raw.length >= 3) {
+      e.target.value = raw.slice(0, 2) + ':' + raw.slice(2);
+    } else if (raw.length > 0) {
+      e.target.value = raw;
+    }
+  }, true);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Gesamtübersicht – Zeiterfassung{% endblock %}
+
+{% block content %}
+<div>
+  <h1 class="text-2xl font-bold text-slate-800 mb-6">Gesamtübersicht</h1>
+
+  <!-- ── Arbeitszeitenübersicht ── -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6">
+    <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+      <div class="w-7 h-7 bg-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <h2 class="text-base font-semibold text-slate-700">Arbeitszeiten nach Jahr</h2>
+    </div>
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-gradient-to-r from-primary-600 to-indigo-600 text-white text-xs uppercase tracking-wide">
+          <th class="px-5 py-2.5 text-left font-semibold">Jahr</th>
+          <th class="px-4 py-2.5 text-center font-semibold">IST</th>
+          <th class="px-4 py-2.5 text-center font-semibold">SOLL</th>
+          <th class="px-4 py-2.5 text-center font-semibold">+/−</th>
+          <th class="px-4 py-2.5 text-center font-semibold">Anwesenheitstage</th>
+          <th class="px-4 py-2.5 w-10"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for yd in years_data %}
+        <tr class="border-b border-slate-100 hover:bg-blue-50/30 transition-colors
+          {% if yd.ist == 0 and yd.soll == 0 %}text-slate-300{% endif %}">
+          <td class="px-5 py-3">
+            <a href="{{ url_for('annual_view', year=yd.year) }}"
+               class="font-bold text-primary-600 hover:text-primary-700 hover:underline text-base">
+              {{ yd.year }}
+            </a>
+          </td>
+          <td class="px-4 py-3 text-center font-medium {% if yd.ist > 0 %}text-slate-700{% else %}text-slate-300{% endif %}">
+            {{ yd.ist | fmt_minutes }}
+          </td>
+          <td class="px-4 py-3 text-center text-slate-500">
+            {{ yd.soll | fmt_minutes }}
+          </td>
+          <td class="px-4 py-3 text-center font-bold text-base
+            {% if yd.diff > 0 %}text-emerald-600{% elif yd.diff < 0 %}text-red-500{% else %}text-slate-300{% endif %}">
+            {{ yd.diff | fmt_minutes(True) }}
+          </td>
+          <td class="px-4 py-3 text-center text-slate-500">
+            {% if yd.attendance_days > 0 %}{{ yd.attendance_days }} Tage{% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-3 text-center">
+            <a href="{{ url_for('annual_view', year=yd.year) }}"
+               class="text-primary-300 hover:text-primary-500 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% if years_data | length > 1 %}
+      <tfoot>
+        {% set total_ist  = years_data | sum(attribute='ist') %}
+        {% set total_soll = years_data | sum(attribute='soll') %}
+        {% set total_diff = total_ist - total_soll %}
+        {% set total_days = years_data | sum(attribute='attendance_days') %}
+        <tr class="bg-gradient-to-r from-slate-50 to-blue-50/50 border-t-2 border-slate-200 font-bold text-slate-700">
+          <td class="px-5 py-3">Gesamt</td>
+          <td class="px-4 py-3 text-center">{{ total_ist | fmt_minutes }}</td>
+          <td class="px-4 py-3 text-center text-slate-600">{{ total_soll | fmt_minutes }}</td>
+          <td class="px-4 py-3 text-center {% if total_diff >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}">
+            {{ total_diff | fmt_minutes(True) }}
+          </td>
+          <td class="px-4 py-3 text-center text-slate-600">{{ total_days }} Tage</td>
+          <td></td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+
+  <!-- ── Urlaubsübersicht ── -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+      <div class="w-7 h-7 bg-violet-100 rounded-lg flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707"/></svg>
+      </div>
+      <h2 class="text-base font-semibold text-slate-700">Urlaub nach Urlaubsjahr</h2>
+    </div>
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-gradient-to-r from-violet-500 to-purple-600 text-white text-xs uppercase tracking-wide">
+          <th class="px-5 py-2.5 text-left font-semibold">Urlaubsjahr</th>
+          <th class="px-4 py-2.5 text-left font-semibold text-xs normal-case tracking-normal">Zeitraum</th>
+          <th class="px-4 py-2.5 text-center font-semibold">Anspruch</th>
+          <th class="px-4 py-2.5 text-center font-semibold">Übertrag</th>
+          <th class="px-4 py-2.5 text-center font-semibold">Gesamt</th>
+          <th class="px-4 py-2.5 text-center font-semibold">Genommen</th>
+          <th class="px-4 py-2.5 text-center font-semibold">Verbleibend</th>
+          <th class="px-5 py-2.5 text-left font-semibold">Balance</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for vs in vac_years_data %}
+        {% set pct = [(((vs.used / vs.total) * 100) if vs.total > 0 else 0), 100] | min %}
+        <tr class="border-b border-slate-100 hover:bg-violet-50/30 transition-colors">
+          <td class="px-5 py-3">
+            <span class="font-bold text-slate-700 text-base">{{ vs.vac_year }}</span>
+          </td>
+          <td class="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
+            {{ vs.period_start.strftime('%d.%m.%Y') }} – {{ vs.period_end.strftime('%d.%m.%Y') }}
+          </td>
+          <td class="px-4 py-3 text-center text-slate-600">{{ vs.entitlement }}</td>
+          <td class="px-4 py-3 text-center {% if vs.carryover > 0 %}text-indigo-600 font-medium{% else %}text-slate-300{% endif %}">
+            {% if vs.carryover > 0 %}+{{ vs.carryover }}{% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-3 text-center font-semibold text-slate-700">{{ vs.total }}</td>
+          <td class="px-4 py-3 text-center {% if vs.used > 0 %}text-slate-600 font-medium{% else %}text-slate-300{% endif %}">
+            {% if vs.used > 0 %}{{ vs.used | round(1) }}{% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-3 text-center font-bold
+            {% if vs.remaining > 5 %}text-emerald-600{% elif vs.remaining > 0 %}text-amber-600{% else %}text-red-500{% endif %}">
+            {{ vs.remaining | round(1) }}
+          </td>
+          <td class="px-5 py-3">
+            <div class="flex items-center gap-2 min-w-32">
+              <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all
+                  {% if pct > 90 %}bg-red-400{% elif pct > 75 %}bg-amber-400{% else %}bg-emerald-400{% endif %}"
+                  style="width: {{ pct | round }}%"></div>
+              </div>
+              <span class="text-xs text-slate-400 w-8 text-right">{{ pct | round | int }}%</span>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not vac_years_data %}
+        <tr>
+          <td colspan="8" class="px-5 py-10 text-center text-slate-400 text-sm">Noch keine Daten vorhanden</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

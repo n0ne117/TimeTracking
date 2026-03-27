@@ -1,0 +1,14 @@
+services:
+  timetracking:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5050:5000"
+    volumes:
+      - ./data:/data
+    environment:
+      - DB_PATH=/data/timetracking.db
+      - SECRET_KEY=change-me-in-production
+    restart: always
+

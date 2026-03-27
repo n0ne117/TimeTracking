@@ -1,0 +1,461 @@
+{% extends "base.html" %}
+{% block title %}{{ month_name }} {{ year }} – Zeiterfassung{% endblock %}
+
+{% block content %}
+
+<!-- Month header & stats -->
+<div class="mb-4">
+  <!-- Month navigation -->
+  <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-3">
+      <!-- Prev month -->
+      <a href="{{ url_for('month_view', year=prev_nav[0], month=prev_nav[1]) }}"
+         class="p-2 rounded-xl bg-white shadow-sm border border-slate-200 hover:bg-primary-50 hover:border-primary-300 transition-all text-slate-600 hover:text-primary-700">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </a>
+      <h1 class="text-2xl font-bold text-slate-800">
+        <span class="text-primary-600">{{ month_name }}</span> {{ year }}
+      </h1>
+      <!-- Next month -->
+      <a href="{{ url_for('month_view', year=next_nav[0], month=next_nav[1]) }}"
+         class="p-2 rounded-xl bg-white shadow-sm border border-slate-200 hover:bg-primary-50 hover:border-primary-300 transition-all text-slate-600 hover:text-primary-700">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </a>
+      <!-- Year navigation -->
+      <a href="{{ url_for('month_view', year=year-1, month=month) }}"
+         class="px-2 py-1 rounded-lg bg-white shadow-sm border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all text-slate-400 hover:text-slate-600 text-xs font-medium"
+         title="Vorjahr ({{ year-1 }})">← {{ year - 1 }}</a>
+      <a href="{{ url_for('month_view', year=year+1, month=month) }}"
+         class="px-2 py-1 rounded-lg bg-white shadow-sm border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all text-slate-400 hover:text-slate-600 text-xs font-medium"
+         title="Nächstes Jahr ({{ year+1 }})">{{ year + 1 }} →</a>
+      <!-- Month picker -->
+      <div class="flex gap-1 ml-2">
+        {% for mn in range(1, 13) %}
+        <a href="{{ url_for('month_view', year=year, month=mn) }}"
+           class="w-7 h-7 flex items-center justify-center rounded-lg text-xs font-medium transition-all
+             {% if mn == month %}bg-primary-600 text-white shadow-sm
+             {% else %}text-slate-500 hover:bg-primary-50 hover:text-primary-700{% endif %}">
+          {{ mn }}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="{{ url_for('annual_view', year=year) }}"
+         class="px-3 py-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-lg transition-all">
+        Jahresübersicht →
+      </a>
+    </div>
+  </div>
+
+  <!-- Stats cards -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-3">
+      <div class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">IST gesamt</div>
+      <div class="text-xl font-bold text-slate-700" id="stat-ist">{{ month_ist | fmt_minutes }}</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-3">
+      <div class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">SOLL gesamt</div>
+      <div class="text-xl font-bold text-slate-700" id="stat-soll">{{ month_soll | fmt_minutes }}</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-3">
+      <div class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Differenz</div>
+      <div class="text-xl font-bold {% if month_diff >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}" id="stat-diff">{{ month_diff | fmt_minutes(True) }}</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-3">
+      <div class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Saldo Ende</div>
+      <div class="text-xl font-bold {% if final_balance >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}" id="stat-balance">{{ final_balance | fmt_minutes(True) }}</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-3">
+      <div class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">
+        Urlaub{% if vacation_stats.vac_year != year %} <span class="text-amber-500">(UJ&nbsp;{{ vacation_stats.vac_year }})</span>{% endif %}
+      </div>
+      <div class="text-xl font-bold text-violet-600">{{ vacation_stats.remaining | int }}
+        <span class="text-sm font-normal text-slate-400">/ {{ vacation_stats.total | int }} Tage</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Time entry form -->
+<form method="POST" action="{{ url_for('month_view', year=year, month=month) }}" id="month-form">
+
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm" id="time-table">
+        <thead>
+          <tr class="bg-gradient-to-r from-primary-600 to-indigo-600 text-white text-xs uppercase tracking-wide">
+            <th class="px-3 py-2.5 text-left font-semibold">Datum</th>
+            <th class="px-2 py-2.5 text-center font-semibold w-24">Code</th>
+            <th class="px-2 py-2.5 text-center font-semibold">Kommt 1</th>
+            <th class="px-2 py-2.5 text-center font-semibold">Geht 1</th>
+            <th class="px-2 py-2.5 text-center font-semibold">Kommt 2</th>
+            <th class="px-2 py-2.5 text-center font-semibold">Geht 2</th>
+            <th class="px-2 py-2.5 text-center font-semibold whitespace-nowrap">Pause <span class="text-blue-200 normal-case font-normal text-xs">(min)</span></th>
+            <th class="px-2 py-2.5 text-center font-semibold w-16">IST</th>
+            <th class="px-2 py-2.5 text-center font-semibold w-16">SOLL</th>
+            <th class="px-2 py-2.5 text-center font-semibold w-16">+/−</th>
+            <th class="px-2 py-2.5 text-center font-semibold w-20">Saldo</th>
+            <th class="px-3 py-2.5 text-left font-semibold">Bemerkungen</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in days %}
+          {% set e = d.entry %}
+          {% set c = d.calc %}
+          <tr class="day-row border-b border-slate-100 transition-colors
+            {% if e.get('code') == 'U' or e.get('code') == 'UH' %}bg-violet-100
+            {% elif e.get('code') == 'G' %}bg-teal-100
+            {% elif d.is_today %}bg-primary-50 border-l-4 border-l-primary-400
+            {% elif d.is_weekend %}bg-slate-200
+            {% elif d.holiday %}bg-amber-50/60
+            {% else %}hover:bg-blue-50/30{% endif %}"
+            data-date="{{ d.date_str }}"
+            data-base-mins="{{ c.base_minutes }}"
+            data-has-holiday="{{ '1' if d.holiday else '0' }}"
+            data-holiday-factor="{{ d.holiday.factor if d.holiday else '1' }}"
+            data-is-weekend="{{ '1' if d.is_weekend else '0' }}"
+            data-is-today="{{ '1' if d.is_today else '0' }}"
+            data-ist="{{ c.ist_minutes }}"
+            data-diff="{{ c.diff_minutes }}"
+          >
+            <!-- Date cell -->
+            <td class="px-3 py-1.5 whitespace-nowrap">
+              <span class="font-semibold {% if d.is_weekend %}text-slate-400{% elif d.is_today %}text-primary-700{% else %}text-slate-700{% endif %} text-sm">{{ d.weekday_short }}</span>
+              <span class="{% if d.is_weekend %}text-slate-400{% elif d.is_today %}text-primary-600{% else %}text-slate-600{% endif %} text-sm ml-1">{{ '%02d' % d.day }}.{{ '%02d' % month }}.</span>
+              {% if d.holiday %}
+              <span class="inline-block px-1.5 py-0.5 bg-amber-100 text-amber-700 text-xs rounded font-medium ml-1">{{ d.holiday.name }}{% if d.holiday.factor > 0 and d.holiday.factor < 1 %} (½){% endif %}</span>
+              {% endif %}
+            </td>
+
+            <!-- Code -->
+            <td class="px-2 py-1.5 text-center">
+              <select name="code_{{ d.day }}" data-day="{{ d.day }}"
+                class="code-select text-xs font-medium rounded-lg px-2 py-1 border focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-200 cursor-pointer
+                  {% if e.get('code') == 'HO' %}bg-blue-50 border-blue-200 text-blue-700
+                  {% elif e.get('code') in ['U','UH'] %}bg-violet-100 border-violet-300 text-violet-800
+                  {% elif e.get('code') in ['K','KR'] %}bg-orange-50 border-orange-200 text-orange-700
+                  {% elif e.get('code') == 'G' %}bg-teal-100 border-teal-300 text-teal-800
+                  {% elif e.get('code') in ['KU','KA'] %}bg-yellow-50 border-yellow-200 text-yellow-700
+                  {% elif e.get('code') == 'B' %}bg-pink-50 border-pink-200 text-pink-700
+                  {% else %}bg-white border-slate-200 text-slate-600{% endif %}">
+                <option value="">—</option>
+                {% for code, info in day_codes.items() %}
+                <option value="{{ code }}" {% if e.get('code') == code %}selected{% endif %}>
+                  {{ code }} – {{ info.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </td>
+
+            <!-- Time inputs (24h text fields) -->
+            {% set time_cls = "w-16 text-center text-sm border rounded-lg px-1 py-1 focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-200 transition-colors font-mono " %}
+            {% set weekend_cls = "bg-slate-100 border-slate-200 text-slate-400 " %}
+            {% set normal_cls = "bg-white border-slate-200 hover:border-slate-300 " %}
+            <td class="px-2 py-1.5 text-center">
+              <input type="text" name="arrived1_{{ d.day }}" inputmode="numeric"
+                class="{{ time_cls }}{{ weekend_cls if d.is_weekend else normal_cls }}arrived1 time-field"
+                value="{{ e.get('arrived1', '') or '' }}" placeholder="HH:MM" maxlength="5"
+                {% if d.is_weekend and not e.get('arrived1') %}tabindex="-1"{% endif %}>
+            </td>
+            <td class="px-2 py-1.5 text-center">
+              <input type="text" name="left1_{{ d.day }}" inputmode="numeric"
+                class="{{ time_cls }}{{ weekend_cls if d.is_weekend else normal_cls }}left1 time-field"
+                value="{{ e.get('left1', '') or '' }}" placeholder="HH:MM" maxlength="5"
+                {% if d.is_weekend and not e.get('left1') %}tabindex="-1"{% endif %}>
+            </td>
+            <td class="px-2 py-1.5 text-center">
+              <input type="text" name="arrived2_{{ d.day }}" inputmode="numeric"
+                class="{{ time_cls }}{{ weekend_cls if d.is_weekend else normal_cls }}arrived2 time-field"
+                value="{{ e.get('arrived2', '') or '' }}" placeholder="HH:MM" maxlength="5"
+                {% if d.is_weekend and not e.get('arrived2') %}tabindex="-1"{% endif %}>
+            </td>
+            <td class="px-2 py-1.5 text-center">
+              <input type="text" name="left2_{{ d.day }}" inputmode="numeric"
+                class="{{ time_cls }}{{ weekend_cls if d.is_weekend else normal_cls }}left2 time-field"
+                value="{{ e.get('left2', '') or '' }}" placeholder="HH:MM" maxlength="5"
+                {% if d.is_weekend and not e.get('left2') %}tabindex="-1"{% endif %}>
+            </td>
+
+            <!-- Break -->
+            <td class="px-2 py-1.5 text-center">
+              <input type="number" name="break_{{ d.day }}" data-day="{{ d.day }}"
+                class="break-input w-20 text-center text-sm border rounded-lg px-1.5 py-1 focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-200 bg-white border-slate-200 {% if d.is_weekend %}bg-slate-50 text-slate-400{% else %}hover:border-slate-300{% endif %} transition-colors"
+                value="{{ e.get('break_minutes', '') or '' }}"
+                min="0" step="5" placeholder="0">
+              {% if c.break_warning %}
+              <div class="text-xs text-red-500 font-medium mt-0.5">⚠ zu kurz</div>
+              {% endif %}
+            </td>
+
+            <!-- Calculated fields -->
+            <td class="px-2 py-1.5 text-center">
+              <span class="ist-display font-medium {% if c.ist_minutes > 0 %}text-slate-700{% else %}text-slate-300{% endif %}">
+                {{ c.ist_minutes | fmt_minutes }}
+              </span>
+            </td>
+            <td class="px-2 py-1.5 text-center">
+              <span class="soll-display font-medium {% if c.soll_minutes > 0 %}text-slate-500{% else %}text-slate-300{% endif %}">
+                {{ c.soll_minutes | fmt_minutes }}
+              </span>
+            </td>
+            <td class="px-2 py-1.5 text-center">
+              <span class="diff-display font-semibold {% if c.diff_minutes > 0 %}text-emerald-600{% elif c.diff_minutes < 0 %}text-red-500{% else %}text-slate-300{% endif %}">
+                {{ c.diff_minutes | fmt_minutes(True) }}
+              </span>
+            </td>
+            <td class="px-2 py-1.5 text-center">
+              <span class="balance-display font-semibold {% if d.running_balance > 0 %}text-emerald-600{% elif d.running_balance < 0 %}text-red-500{% else %}text-slate-400{% endif %}">
+                {{ d.running_balance | fmt_minutes(True) }}
+              </span>
+            </td>
+
+            <!-- Notes -->
+            <td class="px-2 py-1.5">
+              <input type="text" name="notes_{{ d.day }}"
+                class="w-full text-sm border-0 border-b border-slate-200 bg-transparent focus:outline-none focus:border-primary-400 py-0.5 text-slate-600 placeholder-slate-300"
+                value="{{ e.get('notes', '') or '' }}"
+                placeholder="Notiz…">
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+
+        <!-- Month totals footer -->
+        <tfoot>
+          <tr class="bg-gradient-to-r from-slate-50 to-blue-50/50 border-t-2 border-slate-200 font-semibold text-slate-700">
+            <td class="px-3 py-2.5" colspan="2">
+              <span class="text-slate-500 font-medium">Monatssumme</span>
+            </td>
+            <td colspan="5"></td>
+            <td class="px-2 py-2.5 text-center">
+              <span class="text-slate-700 font-bold" id="footer-ist">{{ month_ist | fmt_minutes }}</span>
+            </td>
+            <td class="px-2 py-2.5 text-center">
+              <span class="text-slate-600 font-bold" id="footer-soll">{{ month_soll | fmt_minutes }}</span>
+            </td>
+            <td class="px-2 py-2.5 text-center">
+              <span class="font-bold {% if month_diff >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}" id="footer-diff">{{ month_diff | fmt_minutes(True) }}</span>
+            </td>
+            <td class="px-2 py-2.5 text-center">
+              <span class="font-bold {% if final_balance >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}" id="footer-balance">{{ final_balance | fmt_minutes(True) }}</span>
+            </td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Bottom bar: save -->
+    <div class="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200 gap-4">
+      <div class="text-xs text-slate-400">
+        Übertrag aus Vormonat:
+        <span class="font-semibold {% if carryover >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}">{{ carryover | fmt_minutes(True) }}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-slate-400">Änderungen werden erst beim Speichern übernommen</span>
+        <button type="submit"
+          class="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-700 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-sm hover:shadow-md transition-all text-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          Speichern
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- JS: client-side calculation -->
+<script>
+const CODE_FACTORS = {{ code_factors_json | safe }};
+const HOLIDAYS = {{ holidays_json | safe }};
+const BASE_MINS = {{ base_mins_json | safe }};
+const CARRYOVER = {{ carryover }};
+
+function parseTime(s) {
+  if (!s) return 0;
+  const parts = s.split(':');
+  if (parts.length < 2) return 0;
+  return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+}
+
+function fmtMinutes(mins, showSign = false) {
+  const sign = mins < 0 ? '−' : (showSign && mins > 0 ? '+' : '');
+  const abs = Math.abs(Math.round(mins));
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return `${sign}${h}:${m.toString().padStart(2, '0')}`;
+}
+
+function calcRow(row) {
+  const dateStr = row.dataset.date;
+  const baseMins = parseInt(row.dataset.baseMins) || 0;
+  const hasHoliday = row.dataset.hasHoliday === '1';
+  const holidayFactor = parseFloat(row.dataset.holidayFactor) || 1;
+
+  const a1 = parseTime(row.querySelector('.arrived1').value);
+  const l1 = parseTime(row.querySelector('.left1').value);
+  const a2 = parseTime(row.querySelector('.arrived2').value);
+  const l2 = parseTime(row.querySelector('.left2').value);
+  const breakMins = parseInt(row.querySelector('.break-input').value) || 0;
+  const code = row.querySelector('.code-select').value.toUpperCase();
+
+  let rawTime = 0;
+  if (a1 && l1) { let d = l1 - a1; if (d < 0) d += 1440; rawTime += d; }
+  if (a2 && l2) { let d = l2 - a2; if (d < 0) d += 1440; rawTime += d; }
+  const ist = Math.max(0, rawTime - breakMins);
+
+  const factorStr = CODE_FACTORS[code];
+  let soll;
+  if (hasHoliday && !code) {
+    soll = Math.round(holidayFactor * baseMins);
+  } else if (factorStr === 'NONE' || factorStr === 'XTRA') {
+    soll = ist;
+  } else if (factorStr !== undefined && code) {
+    const cf = parseFloat(factorStr) || 0;
+    soll = hasHoliday ? Math.round(holidayFactor * cf * baseMins) : Math.round(cf * baseMins);
+  } else {
+    soll = baseMins;
+  }
+
+  return { ist, soll, diff: ist - soll, rawTime };
+}
+
+function colorClass(val, pos, neg, zero) {
+  return val > 0 ? pos : val < 0 ? neg : zero;
+}
+
+// Row background classes per code (for U/G coloring)
+const ROW_BG = {
+  'U':  ['bg-violet-100'],
+  'UH': ['bg-violet-100'],
+  'G':  ['bg-teal-100'],
+};
+const ALL_ROW_BG = ['bg-violet-100','bg-teal-100','bg-amber-50/60','bg-slate-200','bg-primary-50','hover:bg-blue-50/30'];
+
+function applyRowBg(row, code) {
+  ALL_ROW_BG.forEach(c => row.classList.remove(c));
+  if (ROW_BG[code]) {
+    ROW_BG[code].forEach(c => row.classList.add(c));
+  } else if (row.dataset.isToday === '1') {
+    row.classList.add('bg-primary-50');
+  } else if (row.dataset.isWeekend === '1') {
+    row.classList.add('bg-slate-200');
+  } else if (row.dataset.hasHoliday === '1') {
+    row.classList.add('bg-amber-50/60');
+  } else {
+    row.classList.add('hover:bg-blue-50/30');
+  }
+}
+
+function updateAll() {
+  const rows = document.querySelectorAll('.day-row');
+  let balance = CARRYOVER;
+  let totalIst = 0, totalSoll = 0;
+
+  rows.forEach(row => {
+    const { ist, soll, diff } = calcRow(row);
+    balance += diff;
+    totalIst += ist;
+    totalSoll += soll;
+
+    row.dataset.ist = ist;
+    row.dataset.diff = diff;
+
+    const istEl = row.querySelector('.ist-display');
+    const sollEl = row.querySelector('.soll-display');
+    const diffEl = row.querySelector('.diff-display');
+    const balEl = row.querySelector('.balance-display');
+
+    istEl.textContent = fmtMinutes(ist);
+    istEl.className = 'ist-display font-medium ' + (ist > 0 ? 'text-slate-700' : 'text-slate-300');
+
+    sollEl.textContent = fmtMinutes(soll);
+    sollEl.className = 'soll-display font-medium ' + (soll > 0 ? 'text-slate-500' : 'text-slate-300');
+
+    diffEl.textContent = fmtMinutes(diff, true);
+    diffEl.className = 'diff-display font-semibold ' + colorClass(diff, 'text-emerald-600', 'text-red-500', 'text-slate-300');
+
+    balEl.textContent = fmtMinutes(balance, true);
+    balEl.className = 'balance-display font-semibold ' + colorClass(balance, 'text-emerald-600', 'text-red-500', 'text-slate-400');
+  });
+
+  const monthDiff = totalIst - totalSoll;
+
+  document.getElementById('stat-ist').textContent = fmtMinutes(totalIst);
+  document.getElementById('stat-soll').textContent = fmtMinutes(totalSoll);
+  const diffEl = document.getElementById('stat-diff');
+  diffEl.textContent = fmtMinutes(monthDiff, true);
+  diffEl.className = 'text-xl font-bold ' + colorClass(monthDiff, 'text-emerald-600', 'text-red-500', 'text-slate-400');
+  const balEl = document.getElementById('stat-balance');
+  balEl.textContent = fmtMinutes(balance, true);
+  balEl.className = 'text-xl font-bold ' + colorClass(balance, 'text-emerald-600', 'text-red-500', 'text-slate-400');
+
+  document.getElementById('footer-ist').textContent = fmtMinutes(totalIst);
+  document.getElementById('footer-soll').textContent = fmtMinutes(totalSoll);
+  const fDiff = document.getElementById('footer-diff');
+  fDiff.textContent = fmtMinutes(monthDiff, true);
+  fDiff.className = 'font-bold ' + colorClass(monthDiff, 'text-emerald-600', 'text-red-500', 'text-slate-300');
+  const fBal = document.getElementById('footer-balance');
+  fBal.textContent = fmtMinutes(balance, true);
+  fBal.className = 'font-bold ' + colorClass(balance, 'text-emerald-600', 'text-red-500', 'text-slate-300');
+}
+
+// Style code select on change
+function styleCodeSelect(sel) {
+  const code = sel.value.toUpperCase();
+  const styleMap = {
+    'HO': 'bg-blue-50 border-blue-200 text-blue-700',
+    'U':  'bg-violet-100 border-violet-300 text-violet-800',
+    'UH': 'bg-violet-100 border-violet-300 text-violet-800',
+    'K':  'bg-orange-50 border-orange-200 text-orange-700',
+    'KR': 'bg-orange-50 border-orange-200 text-orange-700',
+    'G':  'bg-teal-100 border-teal-300 text-teal-800',
+    'KU': 'bg-yellow-50 border-yellow-200 text-yellow-700',
+    'KA': 'bg-yellow-50 border-yellow-200 text-yellow-700',
+    'B':  'bg-pink-50 border-pink-200 text-pink-700',
+  };
+  const base = 'code-select text-xs font-medium rounded-lg px-2 py-1 border focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-200 cursor-pointer ';
+  sel.className = base + (styleMap[code] || 'bg-white border-slate-200 text-slate-600');
+}
+
+// Auto-format time fields: insert colon after 2 digits, normalise on blur
+function autoFormatTime(input) {
+  const raw = input.value.replace(/\D/g, '').slice(0, 4);
+  if (raw.length >= 3) {
+    input.value = raw.slice(0, 2) + ':' + raw.slice(2);
+  } else {
+    input.value = raw;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const table = document.getElementById('time-table');
+
+  // Auto-insert colon while typing
+  table.addEventListener('input', (e) => {
+    if (e.target.classList.contains('time-field')) {
+      const pos = e.target.selectionStart;
+      const raw = e.target.value.replace(/\D/g, '').slice(0, 4);
+      if (raw.length === 2 && !e.target.value.includes(':')) {
+        e.target.value = raw + ':';
+      } else if (raw.length >= 3) {
+        e.target.value = raw.slice(0, 2) + ':' + raw.slice(2);
+      }
+    }
+    if (e.target.classList.contains('code-select')) {
+      styleCodeSelect(e.target);
+      applyRowBg(e.target.closest('.day-row'), e.target.value.toUpperCase());
+    }
+    updateAll();
+  });
+
+  // Normalise on blur
+  table.addEventListener('blur', (e) => {
+    if (e.target.classList.contains('time-field')) {
+      autoFormatTime(e.target);
+      updateAll();
+    }
+  }, true);
+});
+</script>
+{% endblock %}

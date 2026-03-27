@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Feiertage {{ year }} – Zeiterfassung{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+
+  <!-- Header with year navigation -->
+  <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('holidays_view', year=year-1) }}"
+         class="p-2 rounded-xl bg-white shadow-sm border border-slate-200 hover:bg-amber-50 hover:border-amber-300 transition-all text-slate-500 hover:text-amber-700">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </a>
+      <h1 class="text-2xl font-bold text-slate-800">
+        Feiertage <span class="text-amber-600">{{ year }}</span>
+      </h1>
+      <a href="{{ url_for('holidays_view', year=year+1) }}"
+         class="p-2 rounded-xl bg-white shadow-sm border border-slate-200 hover:bg-amber-50 hover:border-amber-300 transition-all text-slate-500 hover:text-amber-700">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </a>
+    </div>
+    <span class="text-sm text-slate-400">{{ holidays | length }} Einträge</span>
+  </div>
+
+  <!-- Holiday list -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-5">
+    {% if holidays %}
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs uppercase tracking-wide">
+          <th class="px-4 py-2.5 text-left font-semibold">Datum</th>
+          <th class="px-4 py-2.5 text-left font-semibold">Bezeichnung</th>
+          <th class="px-4 py-2.5 text-center font-semibold w-24">Faktor</th>
+          <th class="px-4 py-2.5 text-center font-semibold w-24">Auswirkung</th>
+          <th class="px-4 py-2.5 w-12"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in holidays %}
+        {% set parts = h.date.split('-') %}
+        <tr class="border-b border-slate-100 hover:bg-amber-50/30 transition-colors group">
+          <td class="px-4 py-2.5">
+            <span class="font-semibold text-slate-700">
+              {% if parts | length == 3 %}{{ parts[2] }}.{{ parts[1] }}.{{ parts[0] }}{% else %}{{ h.date }}{% endif %}
+            </span>
+          </td>
+          <td class="px-4 py-2.5 text-slate-700">{{ h.name }}</td>
+          <td class="px-4 py-2.5 text-center">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold
+              {% if h.factor == 0 %}bg-red-100 text-red-700
+              {% elif h.factor == 0.5 %}bg-amber-100 text-amber-700
+              {% else %}bg-emerald-100 text-emerald-700{% endif %}">
+              {{ h.factor }}
+            </span>
+          </td>
+          <td class="px-4 py-2.5 text-center text-xs text-slate-400">
+            {% if h.factor == 0 %}Kein SOLL{% elif h.factor == 0.5 %}Halbes SOLL{% else %}Volles SOLL{% endif %}
+          </td>
+          <td class="px-4 py-2.5 text-center">
+            <form method="POST" class="inline">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="date" value="{{ h.date }}">
+              <input type="hidden" name="year" value="{{ year }}">
+              <button type="submit" onclick="return confirm('Feiertag löschen?')"
+                class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all p-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-12 text-slate-400">
+      <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      <p class="text-sm">Keine Feiertage für {{ year }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Add holiday form -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+    <h2 class="text-base font-semibold text-slate-700 mb-4 flex items-center gap-2">
+      <div class="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      </div>
+      Feiertag hinzufügen
+    </h2>
+    <form method="POST" action="{{ url_for('holidays_view') }}" class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+      <input type="hidden" name="action" value="add">
+      <input type="hidden" name="year" value="{{ year }}">
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">Datum</label>
+        <input type="date" name="date" required value="{{ year }}-01-01"
+          min="{{ year }}-01-01" max="{{ year }}-12-31"
+          class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100">
+      </div>
+      <div class="md:col-span-2">
+        <label class="block text-xs font-medium text-slate-500 mb-1">Bezeichnung</label>
+        <input type="text" name="name" required placeholder="z.B. Neujahr"
+          class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">Faktor (SOLL-Anteil)</label>
+        <select name="factor"
+          class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 bg-white">
+          <option value="0">0 – Kein SOLL (freier Tag)</option>
+          <option value="0.5">0.5 – Halbes SOLL</option>
+          <option value="1">1 – Volles SOLL</option>
+        </select>
+      </div>
+      <div class="md:col-span-4 flex justify-end">
+        <button type="submit"
+          class="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-xl shadow-sm text-sm transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          Feiertag speichern
+        </button>
+      </div>
+    </form>
+
+    <div class="mt-4 p-3 bg-amber-50 rounded-xl text-xs text-amber-700 border border-amber-100">
+      <strong>Faktor-Erklärung:</strong>
+      <span class="ml-1"><code class="bg-amber-100 px-1 rounded">0</code> = Feiertag (kein SOLL, kein IST → kein Einfluss aufs Guthaben)</span>
+      <span class="ml-2"><code class="bg-amber-100 px-1 rounded">0.5</code> = Halber Feiertag (z.B. Heiligabend → SOLL = halbe Normalzeit)</span>
+    </div>
+  </div>
+</div>
+{% endblock %}

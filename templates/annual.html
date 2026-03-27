@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}Jahresübersicht {{ year }} – Zeiterfassung{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold text-slate-800">
+      Jahresübersicht <span class="text-primary-600">{{ year }}</span>
+    </h1>
+    <div class="flex items-center gap-2">
+      <a href="{{ url_for('annual_view', year=year-1) }}"
+         class="p-2 rounded-xl bg-white shadow-sm border border-slate-200 hover:bg-primary-50 hover:border-primary-300 transition-all text-slate-600">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </a>
+      <span class="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 shadow-sm">{{ year }}</span>
+      <a href="{{ url_for('annual_view', year=year+1) }}"
+         class="p-2 rounded-xl bg-white shadow-sm border border-slate-200 hover:bg-primary-50 hover:border-primary-300 transition-all text-slate-600">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <!-- Year summary cards -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+      <div class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">IST gesamt</div>
+      <div class="text-2xl font-bold text-slate-700">{{ year_ist | fmt_minutes }}</div>
+      <div class="text-xs text-slate-400 mt-1">{{ (year_ist / 60) | round(1) }} Stunden</div>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+      <div class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">SOLL gesamt</div>
+      <div class="text-2xl font-bold text-slate-700">{{ year_soll | fmt_minutes }}</div>
+      <div class="text-xs text-slate-400 mt-1">{{ (year_soll / 60) | round(1) }} Stunden</div>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+      <div class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Jahresbilanz</div>
+      <div class="text-2xl font-bold {% if year_diff >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}">
+        {{ year_diff | fmt_minutes(True) }}
+      </div>
+      <div class="text-xs text-slate-400 mt-1">{{ (year_diff / 60) | round(1) }} Stunden</div>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+      <div class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Endsaldo</div>
+      <div class="text-2xl font-bold {% if final_balance >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}">
+        {{ final_balance | fmt_minutes(True) }}
+      </div>
+      <div class="text-xs text-slate-400 mt-1">{{ (final_balance / 60) | round(1) }} Stunden</div>
+    </div>
+  </div>
+
+  <!-- Vacation summary -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-6">
+    <h2 class="text-sm font-semibold text-slate-600 mb-3 flex items-center gap-2">
+      <svg class="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707"/></svg>
+      Urlaubsübersicht
+    </h2>
+    <div class="flex items-center gap-6 flex-wrap">
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-violet-400"></div>
+        <span class="text-xs text-slate-500">Urlaubsjahr {{ vacation_stats.vac_year }}:</span>
+        <span class="text-xs text-slate-400">({{ vacation_stats.period_start.strftime('%d.%m.%Y') }} – {{ vacation_stats.period_end.strftime('%d.%m.%Y') }})</span>
+        <span class="text-sm font-semibold text-slate-700">{{ vacation_stats.entitlement }} Tage</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-indigo-400"></div>
+        <span class="text-xs text-slate-500">Übertrag Vorjahr:</span>
+        <span class="text-sm font-semibold text-slate-700">{{ vacation_stats.carryover }} Tage</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-slate-300"></div>
+        <span class="text-xs text-slate-500">Genommen:</span>
+        <span class="text-sm font-semibold text-slate-700">{{ vacation_stats.used | int }} Tage</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-emerald-400"></div>
+        <span class="text-xs text-slate-500">Verbleibend:</span>
+        <span class="text-sm font-bold {% if vacation_stats.remaining > 0 %}text-emerald-600{% else %}text-red-500{% endif %}">
+          {{ vacation_stats.remaining | round(1) }} Tage
+        </span>
+      </div>
+      <!-- Visual bar -->
+      <div class="flex-1 min-w-40">
+        <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+          {% set pct = [((vacation_stats.used / vacation_stats.total) * 100) if vacation_stats.total > 0 else 0, 100] | min %}
+          <div class="h-full rounded-full transition-all
+            {% if pct > 90 %}bg-red-400{% elif pct > 75 %}bg-amber-400{% else %}bg-emerald-400{% endif %}"
+            style="width: {{ pct }}%"></div>
+        </div>
+        <div class="flex justify-between text-xs text-slate-400 mt-0.5">
+          <span>0</span>
+          <span>{{ vacation_stats.total | int }} Tage total</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Monthly breakdown table -->
+<div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="bg-gradient-to-r from-primary-600 to-indigo-600 text-white text-xs uppercase tracking-wide">
+        <th class="px-4 py-3 text-left font-semibold">Monat</th>
+        <th class="px-3 py-3 text-center font-semibold">IST</th>
+        <th class="px-3 py-3 text-center font-semibold">SOLL</th>
+        <th class="px-3 py-3 text-center font-semibold">+/−</th>
+        <th class="px-3 py-3 text-center font-semibold">Saldo Anfang</th>
+        <th class="px-3 py-3 text-center font-semibold">Saldo Ende</th>
+        <th class="px-3 py-3 text-center font-semibold">Anwesenheit</th>
+        <th class="px-3 py-3 text-center font-semibold w-12"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for md in months_data %}
+      <tr class="border-b border-slate-100 hover:bg-blue-50/30 transition-colors
+        {% if md.ist == 0 and md.soll == 0 %}text-slate-300{% endif %}">
+        <td class="px-4 py-3">
+          <a href="{{ url_for('month_view', year=year, month=md.month) }}"
+             class="font-semibold text-primary-600 hover:text-primary-700 hover:underline flex items-center gap-1">
+            {{ md.name }}
+            <svg class="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </a>
+        </td>
+        <td class="px-3 py-3 text-center font-medium {% if md.ist > 0 %}text-slate-700{% else %}text-slate-300{% endif %}">
+          {{ md.ist | fmt_minutes }}
+        </td>
+        <td class="px-3 py-3 text-center text-slate-500">
+          {{ md.soll | fmt_minutes }}
+        </td>
+        <td class="px-3 py-3 text-center font-semibold {% if md.diff > 0 %}text-emerald-600{% elif md.diff < 0 %}text-red-500{% else %}text-slate-300{% endif %}">
+          {{ md.diff | fmt_minutes(True) }}
+        </td>
+        <td class="px-3 py-3 text-center font-medium {% if md.start_balance > 0 %}text-emerald-500{% elif md.start_balance < 0 %}text-red-400{% else %}text-slate-300{% endif %}">
+          {{ md.start_balance | fmt_minutes(True) }}
+        </td>
+        <td class="px-3 py-3 text-center font-bold {% if md.end_balance > 0 %}text-emerald-600{% elif md.end_balance < 0 %}text-red-500{% else %}text-slate-300{% endif %}">
+          {{ md.end_balance | fmt_minutes(True) }}
+        </td>
+        <td class="px-3 py-3 text-center text-slate-500">
+          {% if md.attendance_days > 0 %}{{ md.attendance_days }} Tage{% else %}—{% endif %}
+        </td>
+        <td class="px-3 py-3 text-center">
+          <a href="{{ url_for('month_view', year=year, month=md.month) }}"
+             class="text-primary-400 hover:text-primary-600 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="bg-gradient-to-r from-slate-50 to-blue-50/50 border-t-2 border-slate-200 font-bold text-slate-700">
+        <td class="px-4 py-3">Gesamt</td>
+        <td class="px-3 py-3 text-center">{{ year_ist | fmt_minutes }}</td>
+        <td class="px-3 py-3 text-center text-slate-600">{{ year_soll | fmt_minutes }}</td>
+        <td class="px-3 py-3 text-center {% if year_diff >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}">
+          {{ year_diff | fmt_minutes(True) }}
+        </td>
+        <td></td>
+        <td class="px-3 py-3 text-center {% if final_balance >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}">
+          {{ final_balance | fmt_minutes(True) }}
+        </td>
+        <td colspan="2"></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<!-- Monthly IST vs SOLL bar chart -->
+<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mt-5">
+  <h2 class="text-sm font-semibold text-slate-600 mb-4">IST vs. SOLL pro Monat</h2>
+  <div class="flex items-end gap-2 h-32">
+    {% set max_val = [months_data | map(attribute='soll') | max, months_data | map(attribute='ist') | max, 1] | max %}
+    {% for md in months_data %}
+    <div class="flex-1 flex flex-col items-center gap-1 group">
+      <div class="w-full flex items-end gap-0.5 h-24">
+        <!-- SOLL bar -->
+        <div class="flex-1 rounded-t-sm bg-slate-200 group-hover:bg-slate-300 transition-colors"
+             style="height: {{ ((md.soll / max_val) * 100) | round }}%"
+             title="SOLL: {{ md.soll | fmt_minutes }}"></div>
+        <!-- IST bar -->
+        <div class="flex-1 rounded-t-sm transition-colors
+          {% if md.ist >= md.soll %}bg-emerald-400 group-hover:bg-emerald-500{% else %}bg-red-400 group-hover:bg-red-500{% endif %}"
+             style="height: {{ ((md.ist / max_val) * 100) | round }}%"
+             title="IST: {{ md.ist | fmt_minutes }}"></div>
+      </div>
+      <span class="text-xs text-slate-400 group-hover:text-slate-600 transition-colors">{{ md.name[:3] }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="flex items-center gap-4 mt-3 text-xs text-slate-500">
+    <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-sm bg-slate-200"></div> SOLL</div>
+    <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-sm bg-emerald-400"></div> IST (≥ SOLL)</div>
+    <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-sm bg-red-400"></div> IST (< SOLL)</div>
+  </div>
+</div>
+{% endblock %}
