@@ -98,13 +98,7 @@ ghcr.io/n0ne117/timetracking:latest
 
 Tags: `latest` (current `main`), `sha-<commit>` for every build, and `X.Y.Z` / `X.Y` when a `vX.Y.Z` git tag is pushed.
 
-The package is private (like the repository), so log in once with a GitHub personal access token that has the `read:packages` scope:
-
-```bash
-echo <TOKEN> | docker login ghcr.io -u n0ne117 --password-stdin
-```
-
-Then run it without the source code, e.g. with this `docker-compose.yml`:
+The image is public — no login needed. Run it without the source code, e.g. with this `docker-compose.yml`:
 
 ```yaml
 services:
@@ -127,7 +121,7 @@ docker compose pull && docker compose up -d   # also the update command
 
 ```bash
 # Clone / copy the project
-git clone <repo-url>
+git clone https://github.com/n0ne117/TimeTracking.git
 cd TimeTracking
 
 # Start
