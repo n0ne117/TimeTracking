@@ -248,17 +248,9 @@
 
     <!-- Bottom bar: save -->
     <div class="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200 gap-4">
-      <div class="flex items-center gap-4 text-xs text-slate-400">
-        <span>
-          Übertrag aus Vormonat:
-          <span class="font-semibold {% if carryover >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}">{{ carryover | fmt_minutes(True) }}</span>
-        </span>
-        <label class="flex items-center gap-1.5">
-          Auszahlung:
-          <input type="text" name="payout" id="payout-input" inputmode="numeric" maxlength="6" placeholder="H:MM"
-            value="{{ (payout | fmt_minutes) if payout else '' }}"
-            class="w-16 text-center text-xs border border-slate-200 rounded-lg px-1 py-1 bg-white font-mono focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-200">
-        </label>
+      <div class="text-xs text-slate-400">
+        Übertrag aus Vormonat:
+        <span class="font-semibold {% if carryover >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}">{{ carryover | fmt_minutes(True) }}</span>
       </div>
       <div class="flex items-center gap-2">
         <span class="text-xs text-slate-400">Änderungen werden erst beim Speichern übernommen</span>
@@ -392,7 +384,6 @@ function updateAll() {
   });
 
   const monthDiff = totalIst - totalSoll;
-  balance -= parseTime(document.getElementById('payout-input').value) || 0;
 
   document.getElementById('stat-ist').textContent = fmtMinutes(totalIst);
   document.getElementById('stat-soll').textContent = fmtMinutes(totalSoll);
@@ -461,8 +452,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     updateAll();
   });
-
-  document.getElementById('payout-input').addEventListener('input', updateAll);
 
   // Normalise on blur
   table.addEventListener('blur', (e) => {

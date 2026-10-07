@@ -37,7 +37,6 @@ Custom codes can be added and deleted freely; `U`, `G`, `K`, `HO` are protected.
 - Resets to **zero on 1 January** each year — unused overtime does not carry forward
 - Running balance is recalculated in the browser on every input change (no round-trip needed)
 - The carryover into a month is calculated from all previous months of the same year
-- **Overtime payouts** (*Auszahlung*, `H:MM`) can be entered per month in the bottom bar of the month view; the payout is subtracted from that month's end balance and from all following months of the year
 
 ### Break rules (Pausenregeln)
 - Managed under *Einstellungen → Pausenregeln*
@@ -67,7 +66,7 @@ Custom codes can be added and deleted freely; `U`, `G`, `K`, `HO` are protected.
 - Old years with zero activity are hidden automatically
 
 ### Backup — export & import
-- *Einstellungen → Sicherung*: **Export herunterladen** downloads all data as a single JSON file (`zeiterfassung-backup-YYYY-MM-DD.json`) — time entries, settings, work schedules, break rules, day codes, holidays, payouts and per-year vacation settings
+- *Einstellungen → Sicherung*: **Export herunterladen** downloads all data as a single JSON file (`zeiterfassung-backup-YYYY-MM-DD.json`) — time entries, settings, work schedules, break rules, day codes, holidays and per-year vacation settings
 - **Importieren** restores such a file and **replaces** the existing data of every table contained in the backup
 - The import runs in a single transaction: an invalid or corrupt file leaves the database unchanged
 - Built-in day codes (`U`, `G`, `K`, `HO`) are recreated after an import if the backup didn't contain them
@@ -140,7 +139,6 @@ break_rules       minimum break required after N minutes of work
 day_codes         code → name + SOLL factor
 holidays          date → name + SOLL factor (per calendar year)
 time_entries      one row per calendar day (arrived1/left1/arrived2/left2/break/code/notes)
-month_payouts     overtime paid out in a given month (reduces that month's balance)
 year_settings     per-year vacation entitlement and carryover
 ```
 

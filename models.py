@@ -71,11 +71,6 @@ def init_db():
                 notes TEXT
             );
 
-            CREATE TABLE IF NOT EXISTS month_payouts (
-                year_month TEXT PRIMARY KEY,
-                payout_minutes INTEGER DEFAULT 0
-            );
-
             CREATE TABLE IF NOT EXISTS year_settings (
                 year INTEGER PRIMARY KEY,
                 vacation_entitlement INTEGER,
@@ -302,24 +297,6 @@ def upsert_time_entry(date_str, data: dict):
             )
 
 
-# ─── Month Payouts ────────────────────────────────────────────────────────────
-
-def get_month_payout(year, month):
-    ym = f"{year}-{month:02d}"
-    with get_db() as conn:
-        row = conn.execute("SELECT payout_minutes FROM month_payouts WHERE year_month=?", (ym,)).fetchone()
-    return row['payout_minutes'] if row else 0
-
-
-def set_month_payout(year, month, minutes):
-    ym = f"{year}-{month:02d}"
-    with get_db() as conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO month_payouts (year_month, payout_minutes) VALUES (?, ?)",
-            (ym, int(minutes))
-        )
-
-
 # ─── Year Settings ────────────────────────────────────────────────────────────
 
 def get_year_setting(year):
@@ -476,13 +453,11 @@ def get_carryover(year, month, work_schedules, holidays_map, day_codes, settings
     for m in range(1, month + 1):
         days_in_month = cal_mod.monthrange(year, m)[1]
         entries = get_month_entries(year, m)
-        payout = get_month_payout(year, m)
         for d in range(1, days_in_month + 1):
             date_obj = date(year, m, d)
             entry = entries.get(date_obj.isoformat())
             calc = calculate_entry(entry, date_obj, work_schedules, holidays_map, day_codes, break_rules)
             balance += calc['diff_minutes']
-        balance -= payout
     return balance
 
 
@@ -553,7 +528,7 @@ def get_vacation_stats(year, month, settings):
 BACKUP_FORMAT = 'zeiterfassung-backup'
 BACKUP_VERSION = 1
 BACKUP_TABLES = ['settings', 'work_schedules', 'break_rules', 'day_codes', 'holidays',
-                 'time_entries', 'month_payouts', 'year_settings']
+                 'time_entries', 'year_settings']
 
 
 def _table_columns(conn, table):

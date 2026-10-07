@@ -59,7 +59,6 @@ def month_view(year, month):
                 'notes': request.form.get(f'notes_{day}') or None,
             }
             models.upsert_time_entry(f"{year}-{month:02d}-{day:02d}", entry)
-        models.set_month_payout(year, month, models.parse_hhmm(request.form.get('payout')) or 0)
         flash('Erfolgreich gespeichert!', 'success')
         return redirect(url_for('month_view', year=year, month=month))
 
@@ -111,9 +110,6 @@ def month_view(year, month):
             'is_today': date_obj == today,
         })
 
-    payout = models.get_month_payout(year, month)
-    final_balance = running_balance - payout
-
     vacation_stats = models.get_vacation_stats(year, month, settings)
 
     # Prev/next month navigation
@@ -149,8 +145,7 @@ def month_view(year, month):
         month_ist=month_ist,
         month_soll=month_soll,
         month_diff=month_ist - month_soll,
-        payout=payout,
-        final_balance=final_balance,
+        final_balance=running_balance,
         vacation_stats=vacation_stats,
         prev_nav=prev_nav,
         next_nav=next_nav,
@@ -339,7 +334,6 @@ def annual_view(year):
     for m in range(1, 13):
         days_in_month = calendar.monthrange(year, m)[1]
         entries = models.get_month_entries(year, m)
-        payout = models.get_month_payout(year, m)
         month_ist = 0
         month_soll = 0
         attendance_days = 0
@@ -354,14 +348,13 @@ def annual_view(year):
                 attendance_days += 1
 
         month_diff = month_ist - month_soll
-        end_balance = carryover + month_diff - payout
+        end_balance = carryover + month_diff
         months_data.append({
             'month': m,
             'name': MONTH_NAMES[m],
             'ist': month_ist,
             'soll': month_soll,
             'diff': month_diff,
-            'payout': payout,
             'start_balance': carryover,
             'end_balance': end_balance,
             'attendance_days': attendance_days,
