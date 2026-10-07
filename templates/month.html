@@ -87,6 +87,7 @@
           <tr class="bg-gradient-to-r from-primary-600 to-indigo-600 text-white text-xs uppercase tracking-wide">
             <th class="px-3 py-2.5 text-left font-semibold">Datum</th>
             <th class="px-2 py-2.5 text-center font-semibold w-24">Code</th>
+            <th class="px-1 py-2.5 w-8"></th>
             <th class="px-2 py-2.5 text-center font-semibold">Kommt 1</th>
             <th class="px-2 py-2.5 text-center font-semibold">Geht 1</th>
             <th class="px-2 py-2.5 text-center font-semibold">Kommt 2</th>
@@ -152,6 +153,12 @@
             {% set time_cls = "w-16 text-center text-sm border rounded-lg px-1 py-1 focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-200 transition-colors font-mono " %}
             {% set weekend_cls = "bg-slate-100 border-slate-200 text-slate-400 " %}
             {% set normal_cls = "bg-white border-slate-200 hover:border-slate-300 " %}
+            <td class="px-1 py-1.5 text-center">
+              <button type="button" class="random-btn p-1 rounded-md text-slate-300 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                title="Kommt 1 / Geht 1 zufällig ausfüllen" tabindex="-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="16" cy="8" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="8" cy="16" r="1.2" fill="currentColor"/><circle cx="16" cy="16" r="1.2" fill="currentColor"/></svg>
+              </button>
+            </td>
             <td class="px-2 py-1.5 text-center">
               <input type="text" name="arrived1_{{ d.day }}" inputmode="numeric"
                 class="{{ time_cls }}{{ weekend_cls if d.is_weekend else normal_cls }}arrived1 time-field"
@@ -227,7 +234,7 @@
             <td class="px-3 py-2.5" colspan="2">
               <span class="text-slate-500 font-medium">Monatssumme</span>
             </td>
-            <td colspan="5"></td>
+            <td colspan="6"></td>
             <td class="px-2 py-2.5 text-center">
               <span class="text-slate-700 font-bold" id="footer-ist">{{ month_ist | fmt_minutes }}</span>
             </td>
@@ -422,6 +429,16 @@ function styleCodeSelect(sel) {
   sel.className = base + (styleMap[code] || 'bg-white border-slate-200 text-slate-600');
 }
 
+// Random time between from and to (inclusive), both 'HH:MM'
+const RANDOM_ARRIVED1 = ['07:29', '07:41'];
+const RANDOM_LEFT1 = ['16:27', '16:36'];
+
+function randomTime([from, to]) {
+  const lo = parseTime(from), hi = parseTime(to);
+  const mins = lo + Math.floor(Math.random() * (hi - lo + 1));
+  return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+}
+
 // Auto-format time fields: insert colon after 2 digits, normalise on blur
 function autoFormatTime(input) {
   const raw = input.value.replace(/\D/g, '').slice(0, 4);
@@ -434,6 +451,16 @@ function autoFormatTime(input) {
 
 document.addEventListener('DOMContentLoaded', () => {
   const table = document.getElementById('time-table');
+
+  // Randomise Kommt 1 / Geht 1
+  table.addEventListener('click', (e) => {
+    const btn = e.target.closest('.random-btn');
+    if (!btn) return;
+    const row = btn.closest('.day-row');
+    row.querySelector('.arrived1').value = randomTime(RANDOM_ARRIVED1);
+    row.querySelector('.left1').value = randomTime(RANDOM_LEFT1);
+    updateAll();
+  });
 
   // Auto-insert colon while typing
   table.addEventListener('input', (e) => {
