@@ -132,6 +132,69 @@
     </form>
   </div>
 
+  <!-- Break Rules -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-5">
+    <h2 class="text-base font-semibold text-slate-700 mb-4 flex items-center gap-2">
+      <div class="w-7 h-7 bg-orange-100 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      Pausenregeln
+    </h2>
+
+    {% if break_rules %}
+    <div class="mb-4 overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-xs text-slate-400 uppercase tracking-wide border-b border-slate-100">
+            <th class="pb-2 text-left font-medium">Arbeitszeit über</th>
+            <th class="pb-2 text-center font-medium">Mindestpause</th>
+            <th class="pb-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in break_rules %}
+          <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+            <td class="py-2 font-medium text-slate-700">{{ r.min_work_minutes | fmt_minutes }} h</td>
+            <td class="py-2 text-center text-slate-600">{{ r.required_break_minutes }} min</td>
+            <td class="py-2 text-right">
+              <form method="POST" class="inline">
+                <input type="hidden" name="action" value="delete_break_rule">
+                <input type="hidden" name="rule_id" value="{{ r.id }}">
+                <button type="submit" onclick="return confirm('Pausenregel löschen?')"
+                  class="text-slate-300 hover:text-red-500 transition-colors p-1">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-sm text-slate-400 mb-4">Noch keine Pausenregeln. Ohne Regel gibt es keine Pausenwarnung.</p>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('settings_view') }}" class="flex items-end gap-3">
+      <input type="hidden" name="action" value="save_break_rule">
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">Arbeitszeit über (HH:MM)</label>
+        <input type="text" name="min_work" inputmode="numeric" maxlength="5" placeholder="06:00" required
+          class="sched-time-field w-32 border border-slate-200 rounded-xl px-3 py-2 text-sm text-center font-mono focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">Mindestpause (min)</label>
+        <input type="number" name="required_break" min="0" step="5" placeholder="30" required
+          class="w-32 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100">
+      </div>
+      <button type="submit"
+        class="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-xl text-sm transition-all whitespace-nowrap">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Hinzufügen
+      </button>
+    </form>
+  </div>
+
   <!-- Day Codes -->
   <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
     <h2 class="text-base font-semibold text-slate-700 mb-4 flex items-center gap-2">
@@ -159,7 +222,7 @@
         </div>
         <div class="flex items-center gap-2">
           <span class="text-xs text-slate-400 font-mono">{{ info.factor }}</span>
-          {% if code not in ['U', 'G', 'K', 'HO'] %}
+          {% if code not in protected_codes %}
           <form method="POST" class="opacity-0 group-hover:opacity-100 transition-opacity">
             <input type="hidden" name="action" value="delete_code">
             <input type="hidden" name="code" value="{{ code }}">

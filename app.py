@@ -58,6 +58,7 @@ def month_view(year, month):
                 'notes': request.form.get(f'notes_{day}') or None,
             }
             models.upsert_time_entry(f"{year}-{month:02d}-{day:02d}", entry)
+        models.set_month_payout(year, month, models.parse_hhmm(request.form.get('payout')) or 0)
         flash('Erfolgreich gespeichert!', 'success')
         return redirect(url_for('month_view', year=year, month=month))
 
@@ -109,6 +110,9 @@ def month_view(year, month):
             'is_today': date_obj == today,
         })
 
+    payout = models.get_month_payout(year, month)
+    final_balance = running_balance - payout
+
     vacation_stats = models.get_vacation_stats(year, month, settings)
 
     # Prev/next month navigation
@@ -144,7 +148,8 @@ def month_view(year, month):
         month_ist=month_ist,
         month_soll=month_soll,
         month_diff=month_ist - month_soll,
-        final_balance=running_balance,
+        payout=payout,
+        final_balance=final_balance,
         vacation_stats=vacation_stats,
         prev_nav=prev_nav,
         next_nav=next_nav,
@@ -196,11 +201,23 @@ def settings_view():
 
         elif action == 'delete_code':
             code = request.form.get('code', '').upper()
-            if code in ('U', 'G', 'K', 'HO'):
-                flash(f'Code {code} kann nicht gelöscht werden.', 'error')
-            else:
-                models.delete_day_code(code)
+            if models.delete_day_code(code):
                 flash('Code gelöscht!', 'success')
+            else:
+                flash(f'Code {code} kann nicht gelöscht werden.', 'error')
+
+        elif action == 'save_break_rule':
+            min_work = models.parse_hhmm(request.form.get('min_work'))
+            req_break = request.form.get('required_break', '').strip()
+            if min_work is None or not req_break.isdigit():
+                flash('Bitte Arbeitszeit (HH:MM) und Pause (Minuten) angeben.', 'error')
+            else:
+                models.add_break_rule(min_work, int(req_break))
+                flash('Pausenregel gespeichert!', 'success')
+
+        elif action == 'delete_break_rule':
+            models.delete_break_rule(request.form.get('rule_id'))
+            flash('Pausenregel gelöscht!', 'success')
 
         elif action == 'save_year_setting':
             ys_year_raw = request.form.get('ys_year', '').strip()
@@ -230,6 +247,7 @@ def settings_view():
         work_schedules=work_schedules,
         day_codes=day_codes,
         break_rules=break_rules,
+        protected_codes=models.PROTECTED_CODES,
         weekday_names=WEEKDAY_NAMES_FULL,
         current_year=date.today().year,
         year_settings_list=year_settings_list,

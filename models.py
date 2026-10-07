@@ -110,13 +110,22 @@ def save_settings(data: dict):
 
 # ─── Work Schedules ───────────────────────────────────────────────────────────
 
+WEEKDAY_COLS = ['mon_minutes', 'tue_minutes', 'wed_minutes', 'thu_minutes',
+                'fri_minutes', 'sat_minutes', 'sun_minutes']
+
 def get_work_schedules():
     with get_db() as conn:
         rows = conn.execute("SELECT * FROM work_schedules ORDER BY valid_from").fetchall()
-    return [dict(r) for r in rows]
+    schedules = [dict(r) for r in rows]
+    # Older rows may hold NULL for days left empty — treat them as 0
+    for sched in schedules:
+        for col in WEEKDAY_COLS:
+            sched[col] = sched[col] or 0
+    return schedules
 
 
 def upsert_work_schedule(schedule_id, valid_from, mon, tue, wed, thu, fri, sat, sun):
+    mon, tue, wed, thu, fri, sat, sun = (m or 0 for m in (mon, tue, wed, thu, fri, sat, sun))
     with get_db() as conn:
         if schedule_id:
             conn.execute(
@@ -143,7 +152,23 @@ def get_break_rules():
     return [dict(r) for r in rows]
 
 
+def add_break_rule(min_work_minutes, required_break_minutes):
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO break_rules (min_work_minutes, required_break_minutes) VALUES (?, ?)",
+            (int(min_work_minutes), int(required_break_minutes))
+        )
+
+
+def delete_break_rule(rule_id):
+    with get_db() as conn:
+        conn.execute("DELETE FROM break_rules WHERE id=?", (rule_id,))
+
+
 # ─── Day Codes ────────────────────────────────────────────────────────────────
+
+PROTECTED_CODES = ('U', 'G', 'K', 'HO')
+
 
 def get_day_codes():
     with get_db() as conn:
@@ -160,8 +185,13 @@ def upsert_day_code(code, name, factor):
 
 
 def delete_day_code(code):
+    """Delete a custom day code. Returns False if the code is protected."""
+    code = code.upper()
+    if code in PROTECTED_CODES:
+        return False
     with get_db() as conn:
         conn.execute("DELETE FROM day_codes WHERE code=?", (code,))
+    return True
 
 
 # ─── Holidays ─────────────────────────────────────────────────────────────────
@@ -234,6 +264,12 @@ def get_month_entries(year, month):
 
 
 def upsert_time_entry(date_str, data: dict):
+    fields = ('arrived1', 'left1', 'arrived2', 'left2', 'break_minutes', 'code', 'notes')
+    if not any(data.get(f) for f in fields):
+        # Nothing entered for this day — don't keep an empty row around
+        with get_db() as conn:
+            conn.execute("DELETE FROM time_entries WHERE date=?", (date_str,))
+        return
     with get_db() as conn:
         existing = conn.execute("SELECT 1 FROM time_entries WHERE date=?", (date_str,)).fetchone()
         if existing:
@@ -348,15 +384,13 @@ def format_minutes(mins, show_sign=False):
 def get_base_minutes_for_date(date_obj, work_schedules):
     """Get target work minutes for a given date based on the applicable work schedule."""
     weekday = date_obj.weekday()  # 0=Mon, 6=Sun
-    day_cols = ['mon_minutes', 'tue_minutes', 'wed_minutes', 'thu_minutes',
-                'fri_minutes', 'sat_minutes', 'sun_minutes']
     applicable = None
     for sched in sorted(work_schedules, key=lambda s: s['valid_from']):
         if sched['valid_from'] <= date_obj.isoformat():
             applicable = sched
     if not applicable:
         return 0
-    return applicable[day_cols[weekday]]
+    return applicable[WEEKDAY_COLS[weekday]] or 0
 
 
 def calculate_entry(entry, date_obj, work_schedules, holidays_map, day_codes, break_rules=None):

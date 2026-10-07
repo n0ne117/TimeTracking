@@ -248,9 +248,17 @@
 
     <!-- Bottom bar: save -->
     <div class="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200 gap-4">
-      <div class="text-xs text-slate-400">
-        Übertrag aus Vormonat:
-        <span class="font-semibold {% if carryover >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}">{{ carryover | fmt_minutes(True) }}</span>
+      <div class="flex items-center gap-4 text-xs text-slate-400">
+        <span>
+          Übertrag aus Vormonat:
+          <span class="font-semibold {% if carryover >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}">{{ carryover | fmt_minutes(True) }}</span>
+        </span>
+        <label class="flex items-center gap-1.5">
+          Auszahlung:
+          <input type="text" name="payout" id="payout-input" inputmode="numeric" maxlength="6" placeholder="H:MM"
+            value="{{ (payout | fmt_minutes) if payout else '' }}"
+            class="w-16 text-center text-xs border border-slate-200 rounded-lg px-1 py-1 bg-white font-mono focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-200">
+        </label>
       </div>
       <div class="flex items-center gap-2">
         <span class="text-xs text-slate-400">Änderungen werden erst beim Speichern übernommen</span>
@@ -271,11 +279,14 @@ const HOLIDAYS = {{ holidays_json | safe }};
 const BASE_MINS = {{ base_mins_json | safe }};
 const CARRYOVER = {{ carryover }};
 
+// Returns minutes, or null if absent/invalid ('00:00' is a valid 0)
 function parseTime(s) {
-  if (!s) return 0;
+  if (!s) return null;
   const parts = s.split(':');
-  if (parts.length < 2) return 0;
-  return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+  if (parts.length < 2) return null;
+  const h = parseInt(parts[0]), m = parseInt(parts[1]);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
 }
 
 function fmtMinutes(mins, showSign = false) {
@@ -290,7 +301,8 @@ function calcRow(row) {
   const dateStr = row.dataset.date;
   const baseMins = parseInt(row.dataset.baseMins) || 0;
   const hasHoliday = row.dataset.hasHoliday === '1';
-  const holidayFactor = parseFloat(row.dataset.holidayFactor) || 1;
+  const hf = parseFloat(row.dataset.holidayFactor);
+  const holidayFactor = isNaN(hf) ? 1 : hf;
 
   const a1 = parseTime(row.querySelector('.arrived1').value);
   const l1 = parseTime(row.querySelector('.left1').value);
@@ -300,8 +312,8 @@ function calcRow(row) {
   const code = row.querySelector('.code-select').value.toUpperCase();
 
   let rawTime = 0;
-  if (a1 && l1) { let d = l1 - a1; if (d < 0) d += 1440; rawTime += d; }
-  if (a2 && l2) { let d = l2 - a2; if (d < 0) d += 1440; rawTime += d; }
+  if (a1 !== null && l1 !== null) { let d = l1 - a1; if (d < 0) d += 1440; rawTime += d; }
+  if (a2 !== null && l2 !== null) { let d = l2 - a2; if (d < 0) d += 1440; rawTime += d; }
   const ist = Math.max(0, rawTime - breakMins);
 
   const factorStr = CODE_FACTORS[code];
@@ -380,6 +392,7 @@ function updateAll() {
   });
 
   const monthDiff = totalIst - totalSoll;
+  balance -= parseTime(document.getElementById('payout-input').value) || 0;
 
   document.getElementById('stat-ist').textContent = fmtMinutes(totalIst);
   document.getElementById('stat-soll').textContent = fmtMinutes(totalSoll);
@@ -448,6 +461,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     updateAll();
   });
+
+  document.getElementById('payout-input').addEventListener('input', updateAll);
 
   // Normalise on blur
   table.addEventListener('blur', (e) => {
