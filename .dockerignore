@@ -1,0 +1,26 @@
+# Runtime data (mounted as a volume, never baked into the image)
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# VCS / Docker
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Environment / editor / OS / docs
+.env
+.idea/
+.vscode/
+.DS_Store
+README.md
