@@ -7,6 +7,7 @@ data/
 
 # VCS / Docker
 .git/
+.github/
 .gitignore
 .dockerignore
 Dockerfile
