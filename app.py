@@ -2,11 +2,12 @@ import calendar
 import json
 import os
 from datetime import date, datetime
-from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
+from flask import Flask, Response, render_template, redirect, url_for, request, flash, jsonify
 import models
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'timetracking-secret-key-2026')
+app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # backup uploads
 
 # Initialise DB on startup (safe to call multiple times)
 models.init_db()
@@ -252,6 +253,39 @@ def settings_view():
         current_year=date.today().year,
         year_settings_list=year_settings_list,
     )
+
+
+@app.route('/export')
+def export_view():
+    data = models.export_data()
+    filename = f"zeiterfassung-backup-{date.today().isoformat()}.json"
+    return Response(
+        json.dumps(data, ensure_ascii=False, indent=2),
+        mimetype='application/json',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+    )
+
+
+@app.route('/import', methods=['POST'])
+def import_view():
+    upload = request.files.get('backup_file')
+    if not upload or not upload.filename:
+        flash('Bitte eine Sicherungsdatei auswählen.', 'error')
+        return redirect(url_for('settings_view'))
+    try:
+        payload = json.load(upload.stream)
+        counts = models.import_data(payload)
+    except (ValueError, UnicodeDecodeError) as e:
+        # json.JSONDecodeError is a ValueError subclass
+        msg = str(e) if not isinstance(e, json.JSONDecodeError) else 'Datei ist kein gültiges JSON.'
+        flash(f'Import fehlgeschlagen: {msg}', 'error')
+        return redirect(url_for('settings_view'))
+    except Exception as e:
+        flash(f'Import fehlgeschlagen: {e}', 'error')
+        return redirect(url_for('settings_view'))
+    flash(f"Import erfolgreich: {counts.get('time_entries', 0)} Zeiteinträge, "
+          f"{sum(counts.values())} Datensätze insgesamt.", 'success')
+    return redirect(url_for('settings_view'))
 
 
 @app.route('/holidays', methods=['GET', 'POST'])

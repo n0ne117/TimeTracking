@@ -548,6 +548,72 @@ def get_vacation_stats(year, month, settings):
     }
 
 
+# ─── Backup / Restore ─────────────────────────────────────────────────────────
+
+BACKUP_FORMAT = 'zeiterfassung-backup'
+BACKUP_VERSION = 1
+BACKUP_TABLES = ['settings', 'work_schedules', 'break_rules', 'day_codes', 'holidays',
+                 'time_entries', 'month_payouts', 'year_settings']
+
+
+def _table_columns(conn, table):
+    return [r['name'] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+
+
+def export_data():
+    """Return all data as a JSON-serialisable dict."""
+    tables = {}
+    with get_db() as conn:
+        for table in BACKUP_TABLES:
+            rows = conn.execute(f"SELECT * FROM {table}").fetchall()
+            tables[table] = [dict(r) for r in rows]
+    return {
+        'format': BACKUP_FORMAT,
+        'version': BACKUP_VERSION,
+        'exported_at': datetime.now().isoformat(timespec='seconds'),
+        'tables': tables,
+    }
+
+
+def import_data(payload):
+    """Replace the contents of every table contained in the backup.
+
+    Tables missing from the backup are left untouched. Unknown tables and
+    columns are ignored. Runs in a single transaction — on any error nothing
+    is changed. Returns {table: row_count} for the imported tables.
+    """
+    if not isinstance(payload, dict) or payload.get('format') != BACKUP_FORMAT:
+        raise ValueError('Keine gültige Zeiterfassung-Sicherung.')
+    if int(payload.get('version', 0)) > BACKUP_VERSION:
+        raise ValueError('Sicherung stammt von einer neueren Version.')
+    tables = payload.get('tables')
+    if not isinstance(tables, dict):
+        raise ValueError('Sicherung enthält keine Tabellen.')
+
+    counts = {}
+    with get_db() as conn:
+        for table in BACKUP_TABLES:
+            if table not in tables:
+                continue
+            rows = tables[table]
+            if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):
+                raise ValueError(f'Tabelle {table} ist ungültig.')
+            columns = _table_columns(conn, table)
+            conn.execute(f"DELETE FROM {table}")
+            for row in rows:
+                cols = [c for c in columns if c in row]
+                if not cols:
+                    continue
+                conn.execute(
+                    f"INSERT INTO {table} ({','.join(cols)}) VALUES ({','.join('?' * len(cols))})",
+                    [row[c] for c in cols]
+                )
+            counts[table] = len(rows)
+    # Restore built-in day codes if the backup didn't contain them
+    init_db()
+    return counts
+
+
 # ─── Austrian Public Holidays ─────────────────────────────────────────────────
 
 def compute_easter(year):

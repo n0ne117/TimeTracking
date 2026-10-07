@@ -10,7 +10,9 @@ A self-hosted time tracking web app for Austrian employees. Built with Flask, SQ
 - Enter arrival and departure times (two blocks per day, e.g. before/after lunch)
 - Automatic IST calculation: `(Geht1 − Kommt1) + (Geht2 − Kommt2) − Pause`
 - Running daily balance (IST − SOLL) shown inline
-- Break warning when recorded break time falls below the legally required minimum
+- Break warning (`⚠ zu kurz`) when the recorded break is shorter than the configured break rules require
+- Times are entered as `HH:MM` (colon is inserted automatically); `00:00` is a valid time and shifts crossing midnight are handled
+- Days without any input are not stored; clearing a day completely removes its entry
 - Weekends visually darker; public holidays highlighted inline on the date cell
 
 ### SOLL calculation
@@ -34,7 +36,13 @@ Custom codes can be added and deleted freely; `U`, `G`, `K`, `HO` are protected.
 ### Balance / Saldo
 - Resets to **zero on 1 January** each year — unused overtime does not carry forward
 - Running balance is recalculated in the browser on every input change (no round-trip needed)
-- Month-end balance persisted on save and used as the carryover into the next month
+- The carryover into a month is calculated from all previous months of the same year
+- **Overtime payouts** (*Auszahlung*, `H:MM`) can be entered per month in the bottom bar of the month view; the payout is subtracted from that month's end balance and from all following months of the year
+
+### Break rules (Pausenregeln)
+- Managed under *Einstellungen → Pausenregeln*
+- Each rule: "if the working time exceeds `HH:MM`, at least `N` minutes of break are required" (e.g. over 6:00 → 30 min)
+- With multiple rules, the strictest applicable one wins; without any rule no break warning is shown
 
 ### Vacation tracking
 - Vacation year starts on a configurable month (default: **March 1**), so January and February count against the *previous* year's allowance
@@ -57,6 +65,13 @@ Custom codes can be added and deleted freely; `U`, `G`, `K`, `HO` are protected.
 - All tracked calendar years in one table: IST, SOLL, balance, attendance days
 - All vacation years: entitlement, carryover, days taken, days remaining
 - Old years with zero activity are hidden automatically
+
+### Backup — export & import
+- *Einstellungen → Sicherung*: **Export herunterladen** downloads all data as a single JSON file (`zeiterfassung-backup-YYYY-MM-DD.json`) — time entries, settings, work schedules, break rules, day codes, holidays, payouts and per-year vacation settings
+- **Importieren** restores such a file and **replaces** the existing data of every table contained in the backup
+- The import runs in a single transaction: an invalid or corrupt file leaves the database unchanged
+- Built-in day codes (`U`, `G`, `K`, `HO`) are recreated after an import if the backup didn't contain them
+- Alternatively, stop the container and copy `./data/timetracking.db` for a raw file backup
 
 ---
 
@@ -107,7 +122,7 @@ environment:
 
 1. Open `http://localhost:5050` — you land on the current month.
 2. Go to **Einstellungen** and configure:
-   - *SOLL-Arbeitszeiten* — your weekly schedule (hours and minutes per weekday)
+   - *SOLL-Arbeitszeiten* — your weekly schedule (hours and minutes per weekday; leave days empty for 0)
    - *Pausenregeln* — break thresholds (e.g. 30 min required after 6 h work)
    - *Urlaubsanspruch Standard* — default vacation days per year
    - *Urlaubsjahr beginnt im Monat* — month when your vacation allocation refreshes
